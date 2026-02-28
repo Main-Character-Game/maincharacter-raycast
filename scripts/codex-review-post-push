@@ -1,0 +1,43 @@
+#!/usr/bin/env node
+
+import { readFile } from "node:fs/promises";
+import { spawnSync } from "node:child_process";
+import path from "node:path";
+import { pathToFileURL } from "node:url";
+import { collectPushedShas, defaultGitExec, parsePrePushUpdates } from "./codex-review-push-gate-lib.mjs";
+
+function usage() {
+  console.log("Usage: scripts/codex-review-post-push <post-push-stdin-file> [remote-name]");
+}
+
+async function main() {
+  if ((process.env.CODEX_REVIEW_ENABLED ?? "1") === "0") {
+    process.exit(0);
+  }
+
+  const stdinFile = process.argv[2];
+  if (!stdinFile) {
+    usage();
+    process.exit(2);
+  }
+
+  const repoRoot = process.cwd();
+  const stdinText = await readFile(stdinFile, "utf8");
+  const updates = parsePrePushUpdates(stdinText);
+  const shas = collectPushedShas(updates, (gitArgs) => defaultGitExec(gitArgs, repoRoot));
+
+  for (const sha of shas) {
+    spawnSync("scripts/codex-review-commit", ["--sha", sha, "--trigger", "post-push"], {
+      cwd: repoRoot,
+      encoding: "utf8",
+      maxBuffer: 10 * 1024 * 1024,
+    });
+  }
+}
+
+if (import.meta.url === pathToFileURL(path.resolve(process.argv[1] ?? "")).href) {
+  main().catch((error) => {
+    console.error(`[codex-review-post-push] ${error.message}`);
+    process.exit(1);
+  });
+}

@@ -1,0 +1,21 @@
+#!/bin/sh
+set -eu
+
+if [ "${CODEX_REVIEW_ENABLED:-1}" = "0" ]; then
+  exit 0
+fi
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+COMMIT_SHA="$(git rev-parse HEAD)"
+REVIEWS_DIR="${CODEX_REVIEW_DIR:-$REPO_ROOT/.codex/reviews}"
+LOG_DIR="$REVIEWS_DIR/logs"
+
+umask 077
+mkdir -p "$LOG_DIR"
+
+(
+  cd "$REPO_ROOT"
+  scripts/codex-review-commit --sha "$COMMIT_SHA" --trigger post-commit
+) >> "$LOG_DIR/post-commit.log" 2>&1 &
+
+exit 0

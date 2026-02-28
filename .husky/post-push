@@ -1,0 +1,25 @@
+#!/bin/sh
+set -eu
+
+if [ "${CODEX_REVIEW_ENABLED:-1}" = "0" ] || [ "${CODEX_REVIEW_POST_PUSH_ENABLED:-1}" = "0" ]; then
+  cat >/dev/null
+  exit 0
+fi
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+REVIEWS_DIR="${CODEX_REVIEW_DIR:-$REPO_ROOT/.codex/reviews}"
+LOG_DIR="$REVIEWS_DIR/logs"
+
+umask 077
+mkdir -p "$LOG_DIR"
+
+TMP_INPUT="$(mktemp "$REVIEWS_DIR/post-push.stdin.XXXXXX")"
+cat > "$TMP_INPUT"
+
+(
+  trap 'rm -f "$TMP_INPUT"' EXIT
+  cd "$REPO_ROOT"
+  scripts/codex-review-post-push "$TMP_INPUT" "${1:-}"
+) >> "$LOG_DIR/post-push.log" 2>&1 &
+
+exit 0

@@ -1,0 +1,45 @@
+#!/bin/sh
+set -eu
+
+echo "========================================"
+echo "PRE-PUSH: running checks"
+echo "========================================"
+
+TMP_PUSH_INPUT="$(mktemp "${TMPDIR:-/tmp}/maincharacter-raycast-pre-push.stdin.XXXXXX")"
+trap 'rm -f "$TMP_PUSH_INPUT"' EXIT
+cat > "$TMP_PUSH_INPUT"
+
+npm run ci:quality
+
+if [ "${CODEX_REVIEW_PUSH_GATE_BYPASS:-0}" = "1" ]; then
+  echo "Warning: CODEX_REVIEW_PUSH_GATE_BYPASS=1 set; skipping AI gate."
+  exit 0
+fi
+
+if [ -n "${CODEX_REVIEW_REQUIRED:-}" ]; then
+  case "${CODEX_REVIEW_REQUIRED}" in
+    1|true|TRUE|yes|YES) ENFORCE_GATE="1" ;;
+    *) ENFORCE_GATE="0" ;;
+  esac
+else
+  ENFORCE_GATE="$(git config --bool mc.aiReviewRequired || echo false)"
+  if [ "$ENFORCE_GATE" = "true" ]; then
+    ENFORCE_GATE="1"
+  else
+    ENFORCE_GATE="0"
+  fi
+fi
+
+if [ "$ENFORCE_GATE" != "1" ]; then
+  echo "Maintainer AI gate not required (mc.aiReviewRequired=false)."
+  exit 0
+fi
+
+: "${CODEX_REVIEW_PUSH_GATE_MIN_SEVERITY:=major}"
+: "${CODEX_REVIEW_PUSH_GATE_SYNC_MISSING:=1}"
+
+scripts/codex-review-push-gate \
+  --stdin-file "$TMP_PUSH_INPUT" \
+  --remote-name "${1:-}" \
+  --min-severity "$CODEX_REVIEW_PUSH_GATE_MIN_SEVERITY" \
+  --sync-missing "$CODEX_REVIEW_PUSH_GATE_SYNC_MISSING"

@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+TRIGGER="manual"
+
+if [ "${1:-}" = "--trigger" ] && [ -n "${2:-}" ]; then
+  TRIGGER="$2"
+fi
+
+SHA="$(git rev-parse HEAD)"
+exec scripts/codex-review-commit --sha "$SHA" --trigger "$TRIGGER"

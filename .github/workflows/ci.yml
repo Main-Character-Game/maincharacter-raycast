@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
+
+  dependency-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm audit --audit-level=high
+
+  ci-required:
+    if: always()
+    runs-on: ubuntu-latest
+    needs:
+      - quality
+      - dependency-audit
+    steps:
+      - name: Enforce required CI outcomes
+        run: |
+          quality="${{ needs.quality.result }}"
+          dependency_audit="${{ needs.dependency-audit.result }}"
+
+          echo "quality: ${quality}"
+          echo "dependency-audit: ${dependency_audit}"
+
+          if [[ "${quality}" != "success" || "${dependency_audit}" != "success" ]]; then
+            echo "Required CI checks did not pass."
+            exit 1
+          fi
+
+          echo "All required CI checks passed."

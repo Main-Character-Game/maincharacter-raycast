@@ -61,6 +61,38 @@ npm run build
 npm run lint
 ```
 
+## Quality Gates
+
+This repo includes lightweight CI and local hooks for lint/build checks, plus optional maintainer-enforced Codex/Qwen commit review gating.
+
+- Install hooks (contributor mode, non-blocking AI gate):
+  - `npm run setup:githooks`
+- Install hooks (maintainer mode, blocking AI gate):
+  - `npm run setup:githooks -- --maintainer`
+
+Maintainer mode sets local git config `mc.aiReviewRequired=true`.
+
+### CI
+
+GitHub Actions workflow `.github/workflows/ci.yml` runs:
+
+- `quality`: `npm ci`, `npm run lint`, `npm run build`
+- `dependency-audit`: `npm ci`, `npm audit --audit-level=high`
+- `ci-required`: stable aggregator status check for branch protection
+
+### AI Review Contract
+
+See [`docs/ai-review-contract.md`](docs/ai-review-contract.md) for:
+
+- Codex/Qwen review behavior
+- push gate severity thresholds
+- env vars and bypass controls
+- review artifact format (`.codex/reviews/`)
+
+### GitHub Settings
+
+See [`.github/SETTINGS.md`](.github/SETTINGS.md) for recommended repository settings to enable.
+
 ## License
 
 MIT

@@ -7,7 +7,11 @@
     "dev": "ray develop",
     "build": "ray build",
     "lint": "ray lint",
-    "fix-lint": "ray lint --fix"
+    "fix-lint": "ray lint --fix",
+    "ci:quality": "npm run lint && npm run build",
+    "ai:review:last": "scripts/codex-review-last-commit",
+    "setup:githooks": "scripts/setup-githooks",
+    "prepare": "husky"
   },
   "dependencies": {
     "@raycast/api": "^1.102.0",
@@ -19,6 +23,7 @@
     "@raycast/tsconfig": "^1.0.8",
     "@types/react": "^18.3.18",
     "eslint": "^9.20.1",
+    "husky": "^9.1.7",
     "prettier": "^3.5.1",
     "typescript": "^5.7.3"
   },

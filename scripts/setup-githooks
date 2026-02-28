@@ -1,0 +1,70 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$REPO_ROOT"
+
+EXPECTED_HOOKS_PATH=".husky/_"
+CURRENT_HOOKS_PATH="$(git config --get core.hooksPath || true)"
+
+if [ "$CURRENT_HOOKS_PATH" != "$EXPECTED_HOOKS_PATH" ]; then
+  git config core.hooksPath "$EXPECTED_HOOKS_PATH"
+  echo "Configured core.hooksPath=$EXPECTED_HOOKS_PATH"
+else
+  echo "core.hooksPath already set to $EXPECTED_HOOKS_PATH"
+fi
+
+if [ "${1:-}" = "--maintainer" ]; then
+  git config mc.aiReviewRequired true
+  echo "Configured maintainer mode: mc.aiReviewRequired=true"
+else
+  if git config --get mc.aiReviewRequired >/dev/null 2>&1; then
+    echo "mc.aiReviewRequired=$(git config --get mc.aiReviewRequired)"
+  else
+    git config mc.aiReviewRequired false
+    echo "Configured contributor mode: mc.aiReviewRequired=false"
+  fi
+fi
+
+required_hooks=(
+  ".husky/pre-commit"
+  ".husky/pre-push"
+  ".husky/post-commit"
+  ".husky/post-push"
+)
+required_scripts=(
+  "scripts/codex-review-commit"
+  "scripts/codex-review-post-push"
+  "scripts/codex-review-last-commit"
+  "scripts/codex-review-push-gate"
+)
+
+for hook in "${required_hooks[@]}"; do
+  if [ ! -f "$hook" ]; then
+    echo "Missing required hook: $hook" >&2
+    exit 1
+  fi
+  chmod +x "$hook"
+done
+
+for script in "${required_scripts[@]}"; do
+  if [ ! -f "$script" ]; then
+    echo "Missing required script: $script" >&2
+    exit 1
+  fi
+  chmod +x "$script"
+done
+
+if command -v codex >/dev/null 2>&1; then
+  if codex login status >/dev/null 2>&1; then
+    echo "Codex auth: OK"
+  else
+    echo "Codex auth: missing (run: codex login)"
+  fi
+else
+  echo "Codex CLI not found in PATH (maintainer AI gate will fail until installed)."
+fi
+
+echo "Setup complete."
+echo "- Maintainer mode: scripts/setup-githooks --maintainer"
+echo "- Contributor mode: scripts/setup-githooks"

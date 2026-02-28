@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["schema_version", "summary", "findings"],
+  "additionalProperties": true,
+  "properties": {
+    "schema_version": { "type": "integer", "const": 2 },
+    "summary": { "type": "string" },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["title", "severity", "confidence", "body"],
+        "additionalProperties": true,
+        "properties": {
+          "id": { "type": ["string", "null"] },
+          "title": { "type": "string" },
+          "severity": { "type": "string", "enum": ["minor", "major", "blocker"] },
+          "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+          "file": { "type": ["string", "null"] },
+          "line": { "type": ["integer", "null"], "minimum": 1 },
+          "body": { "type": "string" },
+          "source_model": { "type": ["string", "null"] }
+        }
+      }
+    }
+  }
+}
