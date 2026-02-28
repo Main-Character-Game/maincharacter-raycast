@@ -84,7 +84,10 @@ async function fetchWithTimeout(
       );
     }
 
-    throw new NetworkError("network", "Couldn’t reach Main Character. Try again.");
+    throw new NetworkError(
+      "network",
+      "Couldn’t reach Main Character. Try again.",
+    );
   } finally {
     clearTimeout(timeoutId);
   }
@@ -112,7 +115,10 @@ export async function postJson<TResponse>(params: {
         REQUEST_TIMEOUT_MS,
       );
 
-      const payload = (await parseJsonSafely(response)) as ApiErrorPayload | TResponse | null;
+      const payload = (await parseJsonSafely(response)) as
+        | ApiErrorPayload
+        | TResponse
+        | null;
 
       if (!response.ok) {
         const apiErrorPayload = (payload ?? null) as ApiErrorPayload | null;

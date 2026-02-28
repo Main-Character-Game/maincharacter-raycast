@@ -2,7 +2,6 @@
   "name": "maincharacter-raycast",
   "version": "0.1.0",
   "description": "Quickly add tasks to Main Character from Raycast.",
-  "license": "MIT",
   "main": "src/quick-add-task.tsx",
   "scripts": {
     "dev": "ray develop",
@@ -17,11 +16,11 @@
   "dependencies": {
     "@raycast/api": "^1.102.0",
     "@raycast/utils": "^1.17.0",
-    "react": "^19.0.0"
+    "react": "^18.3.1"
   },
   "devDependencies": {
     "@raycast/eslint-config": "^2.1.0",
-    "@types/react": "19.0.10",
+    "@types/react": "^18.3.18",
     "eslint": "^9.20.1",
     "husky": "^9.1.7",
     "prettier": "^3.5.1",
@@ -29,8 +28,8 @@
   },
   "schemaVersion": 1,
   "title": "Main Character",
-  "author": "gmays",
-  "icon": "main-character-icon.png",
+  "icon": "main-character-icon.svg",
+  "author": "Main Character",
   "categories": [
     "Productivity"
   ],
@@ -65,7 +64,7 @@
       "subtitle": "Create in Main Character",
       "description": "Capture a task quickly from Raycast",
       "mode": "view",
-      "icon": "quick-add-task-icon.png",
+      "icon": "quick-add-task-icon.svg",
       "keywords": [
         "add",
         "create",

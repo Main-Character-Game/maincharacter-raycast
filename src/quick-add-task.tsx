@@ -67,7 +67,10 @@ export default function QuickAddTaskCommand(
 
   async function persistOpenAfterCreate(nextValue: boolean): Promise<void> {
     setOpenAfterCreate(nextValue);
-    await LocalStorage.setItem(OPEN_AFTER_CREATE_STORAGE_KEY, String(nextValue));
+    await LocalStorage.setItem(
+      OPEN_AFTER_CREATE_STORAGE_KEY,
+      String(nextValue),
+    );
   }
 
   async function handleSubmit(): Promise<void> {
