@@ -12,13 +12,33 @@ This extension is intentionally a thin client. Task creation, policy checks, ide
 - Success toast with `Go to Task` action when auto-open is off
 - Uses Personal Access Token (PAT) auth from Raycast secure preferences
 
-## Install (GitHub dogfooding)
+## Install (Local Development)
+
+Prerequisites:
+
+- Raycast Desktop with `Advanced -> Enable Developer Mode` turned on
+- Node.js + npm installed
+- Internet access to install npm dependencies
 
 1. Clone this repo locally.
-2. In Raycast, import/start this extension from your local repo (developer mode).
-3. Configure extension preferences:
+2. Install dependencies in the repo root:
+   - `npm install`
+3. In Raycast, run `Import Extension` and select this repo root folder (the folder containing `package.json`).
+4. Wait for import/build to finish.
+5. Configure extension preferences:
    - `API Base URL`: `https://maincharacter.game` (or local override)
    - `Personal Access Token`: token with `TASK_CREATE` scope
+6. Run `Quick Add Task`.
+
+### Troubleshooting Install
+
+- `sh: ray: command not found`:
+  - Run `npm install` in the repo root, then retry import.
+- Extension command does not appear after import:
+  - Confirm you imported the folder that contains `package.json`.
+  - Open `Manage Extensions` and verify the extension is enabled.
+- Import/build fails:
+  - Run `npm run build` in terminal to see the concrete error.
 
 ## Quick Start
 
@@ -61,16 +81,12 @@ npm run build
 npm run lint
 ```
 
-## Quality Gates
+## Contributing
 
-This repo includes lightweight CI and local hooks for lint/build checks, plus optional maintainer-enforced Codex/Qwen commit review gating.
+Before opening a PR, run:
 
-- Install hooks (contributor mode, non-blocking AI gate):
-  - `npm run setup:githooks`
-- Install hooks (maintainer mode, blocking AI gate):
-  - `npm run setup:githooks -- --maintainer`
-
-Maintainer mode sets local git config `mc.aiReviewRequired=true`.
+- `npm run lint`
+- `npm run build`
 
 ### CI
 
@@ -79,15 +95,6 @@ GitHub Actions workflow `.github/workflows/ci.yml` runs:
 - `quality`: `npm ci`, `npm run lint`, `npm run build`
 - `dependency-audit`: `npm ci`, `npm audit --audit-level=high`
 - `ci-required`: stable aggregator status check for branch protection
-
-### AI Review Contract
-
-See [`docs/ai-review-contract.md`](docs/ai-review-contract.md) for:
-
-- Codex/Qwen review behavior
-- push gate severity thresholds
-- env vars and bypass controls
-- review artifact format (`.codex/reviews/`)
 
 ### GitHub Settings
 

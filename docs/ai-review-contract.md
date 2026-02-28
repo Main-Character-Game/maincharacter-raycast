@@ -40,6 +40,7 @@ Review artifacts are written to `.codex/reviews/`.
 - `CODEX_REVIEW_OLLAMA_ENABLED` (default `1`): enable/disable local Qwen run.
 - `CODEX_REVIEW_OLLAMA_URL` (default `http://127.0.0.1:11434/v1/chat/completions`)
 - `CODEX_REVIEW_OLLAMA_MODEL` (default `qwen3.5:35b-a3b`)
+- `CODEX_REVIEW_OLLAMA_NUM_CTX` (default `16384`)
 - `CODEX_REVIEW_OLLAMA_TIMEOUT_SECONDS` (default `300`)
 - `CODEX_REVIEW_PUSH_GATE_ENABLED` (default `1`)
 - `CODEX_REVIEW_PUSH_GATE_MIN_SEVERITY` (default `major`)

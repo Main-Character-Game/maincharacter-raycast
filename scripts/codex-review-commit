@@ -230,6 +230,8 @@ async function main() {
   const localModel = process.env.CODEX_REVIEW_OLLAMA_MODEL ?? "qwen3.5:35b-a3b";
   const localTimeoutSec = Number.parseInt(process.env.CODEX_REVIEW_OLLAMA_TIMEOUT_SECONDS ?? "300", 10);
   const localTimeoutMs = Number.isInteger(localTimeoutSec) && localTimeoutSec > 0 ? localTimeoutSec * 1000 : 300_000;
+  const localNumCtxRaw = Number.parseInt(process.env.CODEX_REVIEW_OLLAMA_NUM_CTX ?? "16384", 10);
+  const localNumCtx = Number.isInteger(localNumCtxRaw) && localNumCtxRaw > 0 ? localNumCtxRaw : 16384;
 
   let localResult = buildFallback("Qwen local review skipped.", { source: "qwen" });
   let localStatus = "skipped";
@@ -253,6 +255,9 @@ async function main() {
             { role: "system", content: "You are a strict code reviewer that returns valid JSON only." },
             { role: "user", content: prompt },
           ],
+          options: {
+            num_ctx: localNumCtx,
+          },
           temperature: 0.1,
         }),
       });
