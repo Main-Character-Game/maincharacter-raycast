@@ -1,91 +1,66 @@
-# Main Character Raycast
+# Main Character Raycast Extension
 
-Quickly add tasks to **Main Character** from Raycast.
+Quickly add tasks to Main Character from Raycast.
 
-This extension is a thin client.  
-All progress, XP, streaks, and rewards are computed server-side by the Main Character kernel.
-
----
+This extension is intentionally a thin client. Task creation, policy checks, idempotency, and all game logic remain server-side in Main Character.
 
 ## Features
 
-- ⚡ Quick Add Task from anywhere
-- 📝 Optional notes
-- 🚀 Instant capture without opening the browser
-- 🔒 Secure API token authentication
+- Quick Add Task form (`Title`, optional `Notes`)
+- `Cmd+Enter` submit for fast capture
+- Optional `Open task in Main Character after create` toggle (persisted locally, off by default)
+- Success toast with `Go to Task` action when auto-open is off
+- Uses Personal Access Token (PAT) auth from Raycast secure preferences
 
----
+## Install (GitHub dogfooding)
 
-## Setup
+1. Clone this repo locally.
+2. In Raycast, import/start this extension from your local repo (developer mode).
+3. Configure extension preferences:
+   - `API Base URL`: `https://maincharacter.game` (or local override)
+   - `Personal Access Token`: token with `TASK_CREATE` scope
 
-### 1. Generate an API Token
+## Quick Start
 
-1. Log in to Main Character
-2. Go to **Settings → API Tokens**
-3. Create a new Personal Access Token
-4. Copy the token
+1. In Main Character, create a PAT in:
+   - `Settings -> Quick Add -> Personal Access Tokens`
+2. In Raycast, run `Quick Add Task`.
+3. Type title, optional notes, press `Cmd+Enter`.
+4. Optional: enable `Open task in Main Character after create` in the form; value is remembered.
 
-### 2. Configure the Extension
+## Fast Daily Workflow
 
-In Raycast:
+- Assign a global hotkey to `Quick Add Task` in Raycast settings.
+- Optional deeplink shape:
+  - `raycast://extensions/Main-Character-Game/maincharacter-raycast/quick-add-task`
+- The command attempts to prefill title from selected text when available.
 
-1. Open Extensions → Main Character → Preferences
-2. Set:
+## API Contract Used
 
-- **API Base URL**
-  - Production: `https://maincharacter.game`
-  - Local dev: `http://localhost:3000`
-- **Personal Access Token**
-  - Paste the token you generated
-
----
+- Endpoint: `POST /api/tasks/quick-add`
+- Auth: `Authorization: Bearer <mc_pat_...>`
+- Request:
+  - `title` (required)
+  - `notes` (optional)
+  - `source = "raycast_extension"`
+  - `idempotencyKey` (required)
+- Success response includes created task identity and URL.
 
 ## Security Model
 
-This extension:
-
-- Does not store your password
-- Does not compute XP or rewards locally
-- Only calls official Main Character API routes
-- Never writes directly to the database
-
-All state mutations go through the Main Character command boundary and are policy-checked and auditable.
-
-If you revoke your API token, the extension immediately loses access.
-
----
+- PAT is stored via Raycast secure preference (`password` type).
+- No PAT values are logged or shown in error output.
+- No local business logic for XP/streak/progression.
 
 ## Development
 
-Install dependencies:
-
 ```bash
 npm install
-
-Run in development mode:
-
 npm run dev
-
-Build for production:
-
 npm run build
+npm run lint
 ```
-
----
-
-## Architecture
-
-The extension is intentionally minimal:
-
-- UI: Raycast Form
-- Network: Single POST request to create a task
-- Server: All logic handled by Main Character
-
-No business logic lives in this repository.
-
----
 
 ## License
 
 MIT
-

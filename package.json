@@ -1,0 +1,83 @@
+{
+  "name": "maincharacter-raycast",
+  "version": "0.1.0",
+  "description": "Quickly add tasks to Main Character from Raycast.",
+  "main": "src/quick-add-task.tsx",
+  "scripts": {
+    "dev": "ray develop",
+    "build": "ray build",
+    "lint": "ray lint",
+    "fix-lint": "ray lint --fix"
+  },
+  "dependencies": {
+    "@raycast/api": "^1.102.0",
+    "@raycast/utils": "^1.17.0",
+    "react": "^18.3.1"
+  },
+  "devDependencies": {
+    "@raycast/eslint-config": "^2.1.0",
+    "@raycast/tsconfig": "^1.0.8",
+    "@types/react": "^18.3.18",
+    "eslint": "^9.20.1",
+    "prettier": "^3.5.1",
+    "typescript": "^5.7.3"
+  },
+  "raycast": {
+    "schemaVersion": 1,
+    "title": "Main Character",
+    "description": "Quick add tasks to Main Character.",
+    "icon": "assets/main-character-icon.svg",
+    "author": "Main Character",
+    "categories": [
+      "Productivity"
+    ],
+    "keywords": [
+      "main character",
+      "tasks",
+      "quick add",
+      "capture",
+      "todo"
+    ],
+    "preferences": [
+      {
+        "name": "baseUrl",
+        "title": "API Base URL",
+        "description": "Main Character base URL",
+        "type": "textfield",
+        "required": true,
+        "default": "https://maincharacter.game"
+      },
+      {
+        "name": "personalAccessToken",
+        "title": "Personal Access Token",
+        "description": "PAT with TASK_CREATE scope",
+        "type": "password",
+        "required": true
+      }
+    ],
+    "commands": [
+      {
+        "name": "quick-add-task",
+        "title": "Quick Add Task",
+        "subtitle": "Create in Main Character",
+        "description": "Capture a task quickly from Raycast",
+        "mode": "view",
+        "icon": "assets/quick-add-task-icon.svg",
+        "keywords": [
+          "add",
+          "create",
+          "capture",
+          "task"
+        ],
+        "arguments": [
+          {
+            "name": "title",
+            "placeholder": "Optional title prefill",
+            "type": "text",
+            "required": false
+          }
+        ]
+      }
+    ]
+  }
+}

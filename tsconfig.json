@@ -1,0 +1,4 @@
+{
+  "extends": "@raycast/tsconfig/base",
+  "include": ["src/**/*"]
+}
