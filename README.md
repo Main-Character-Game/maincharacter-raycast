@@ -85,14 +85,14 @@ npm run lint
 
 Before opening a PR, run:
 
-- `npm run lint`
-- `npm run build`
+- `npm run ci:quality`
 
 ### CI
 
 GitHub Actions workflow `.github/workflows/ci.yml` runs:
 
-- `quality`: `npm ci`, `npm run lint`, `npm run build`
+- Triggered on `push` to `main`, `pull_request` to `main`, and manual `workflow_dispatch`
+- `quality`: `npm ci`, `npm run ci:quality` (`checks:shared`, `lint`, `test`, `build`)
 - `dependency-audit`: `npm ci`, `npm audit --audit-level=high`
 - `ci-required`: stable aggregator status check for branch protection
 

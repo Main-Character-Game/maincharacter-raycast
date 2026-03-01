@@ -5,36 +5,34 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
   quality:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: ./.github/actions/setup-node-npm
         with:
           node-version: 22
-      - run: npm install
-      - run: npm run lint
-      - run: npm run build
+      - run: npm run ci:quality
 
   dependency-audit:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: ./.github/actions/setup-node-npm
         with:
           node-version: 22
-      - run: npm install
       - run: npm audit --audit-level=high
 
   ci-required:
@@ -52,9 +50,16 @@ jobs:
           echo "quality: ${quality}"
           echo "dependency-audit: ${dependency_audit}"
 
-          if [[ "${quality}" != "success" || "${dependency_audit}" != "success" ]]; then
-            echo "Required CI checks did not pass."
-            exit 1
-          fi
+          require_success() {
+            local job_name="$1"
+            local job_result="$2"
+            if [[ "${job_result}" != "success" ]]; then
+              echo "Required job ${job_name} did not pass (result=${job_result})."
+              exit 1
+            fi
+          }
+
+          require_success "quality" "${quality}"
+          require_success "dependency-audit" "${dependency_audit}"
 
           echo "All required CI checks passed."
