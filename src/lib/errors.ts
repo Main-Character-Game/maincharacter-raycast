@@ -11,6 +11,12 @@ function isPreferenceErrorLike(error: unknown): error is Error {
   return error instanceof Error && error.name === "PreferenceError";
 }
 
+function asNonEmptyMessage(message: unknown): string | null {
+  if (typeof message !== "string") return null;
+  const trimmed = message.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
 export function toUserFacingError(error: unknown): UserFacingError {
   if (isPreferenceErrorLike(error)) {
     return {
@@ -36,12 +42,12 @@ export function toUserFacingError(error: unknown): UserFacingError {
 
   if (error instanceof ApiError) {
     if (error.status === 401 || error.status === 403) {
+      const message = asNonEmptyMessage(error.message);
       return {
         title: "Authentication Failed",
         message:
-          error.message.trim().length > 0
-            ? error.message
-            : "Token invalid, revoked, expired, or missing required scope.",
+          message ??
+          "Token invalid, revoked, expired, or missing required scope.",
         openPreferences: true,
       };
     }
@@ -66,10 +72,18 @@ export function toUserFacingError(error: unknown): UserFacingError {
     };
   }
 
-  if (error instanceof Error && error.message.trim().length > 0) {
+  if (error instanceof Error) {
+    const message = asNonEmptyMessage(error.message);
+    if (!message) {
+      return {
+        title: "Couldn’t Create Task",
+        message: "Unexpected error. Try again.",
+      };
+    }
+
     return {
       title: "Couldn’t Create Task",
-      message: error.message,
+      message,
     };
   }
 

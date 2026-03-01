@@ -28,3 +28,17 @@ test("toUserFacingError keeps server auth message and opens preferences", () => 
   assert.equal(mapped.message, "Missing required scope: TASK_CREATE");
   assert.equal(mapped.openPreferences, true);
 });
+
+test("toUserFacingError falls back safely when auth ApiError message is missing", () => {
+  const error = new ApiError({ status: 403, message: "" });
+  (error as unknown as { message?: unknown }).message = undefined;
+
+  const mapped = toUserFacingError(error);
+
+  assert.equal(mapped.title, "Authentication Failed");
+  assert.equal(
+    mapped.message,
+    "Token invalid, revoked, expired, or missing required scope.",
+  );
+  assert.equal(mapped.openPreferences, true);
+});
