@@ -9,6 +9,14 @@ TMP_PUSH_INPUT="$(mktemp "${TMPDIR:-/tmp}/maincharacter-raycast-pre-push.stdin.X
 trap 'rm -f "$TMP_PUSH_INPUT"' EXIT
 cat > "$TMP_PUSH_INPUT"
 
+# Keep mirrored shared scripts aligned before any checks/push-gate run.
+# Non-maintainer clones may not have the canonical sibling repo locally.
+if scripts/resolve-shared-scripts-dir.sh >/dev/null 2>&1; then
+  npm run checks:shared:sync
+else
+  echo "Shared review scripts sync skipped: canonical scripts directory unavailable."
+fi
+
 npm run ci:quality
 
 if [ "${CODEX_REVIEW_PUSH_GATE_BYPASS:-0}" = "1" ]; then
