@@ -14,6 +14,8 @@ const wrapperFiles = [
   "codex-review-post-push",
   "codex-review-push-gate",
   "codex-review-dismiss-finding",
+  "codex-review-local-enqueue",
+  "codex-review-local-worker",
 ];
 const mirroredFiles = ["codex-review-output.schema.json", "codex-review-verify-findings.mjs", "codex-review-push-gate-lib.mjs"];
 

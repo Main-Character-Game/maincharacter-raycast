@@ -42,6 +42,8 @@ required_scripts=(
   "scripts/codex-review-push-gate"
   "scripts/codex-review-dismiss-finding"
   "scripts/codex-review-auto-dismiss.mjs"
+  "scripts/codex-review-local-enqueue"
+  "scripts/codex-review-local-worker"
 )
 
 for hook in "${required_hooks[@]}"; do

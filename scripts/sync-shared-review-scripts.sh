@@ -9,6 +9,8 @@ wrapper_files=(
   "codex-review-post-push"
   "codex-review-push-gate"
   "codex-review-dismiss-finding"
+  "codex-review-local-enqueue"
+  "codex-review-local-worker"
 )
 
 mirrored_files=(

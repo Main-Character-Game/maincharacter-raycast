@@ -10,12 +10,23 @@ COMMIT_SHA="$(git rev-parse HEAD)"
 REVIEWS_DIR="${CODEX_REVIEW_DIR:-$REPO_ROOT/.codex/reviews}"
 LOG_DIR="$REVIEWS_DIR/logs"
 
+: "${CODEX_REVIEW_REQUIRE_LOCAL_MODEL:=0}"
+: "${CODEX_REVIEW_OLLAMA_ENABLED:=0}"
+export CODEX_REVIEW_REQUIRE_LOCAL_MODEL
+export CODEX_REVIEW_OLLAMA_ENABLED
+
 umask 077
 mkdir -p "$LOG_DIR"
 
 (
   cd "$REPO_ROOT"
   scripts/codex-review-commit --sha "$COMMIT_SHA" --trigger post-commit
+) >> "$LOG_DIR/post-commit.log" 2>&1 &
+
+(
+  cd "$REPO_ROOT"
+  scripts/codex-review-local-enqueue --sha "$COMMIT_SHA" || true
+  scripts/codex-review-local-worker || true
 ) >> "$LOG_DIR/post-commit.log" 2>&1 &
 
 exit 0
