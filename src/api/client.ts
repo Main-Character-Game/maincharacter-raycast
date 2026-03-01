@@ -11,6 +11,7 @@ export type ApiErrorPayload = {
   ok?: boolean;
   code?: string;
   error?: string;
+  message?: string;
 };
 
 export class ApiError extends Error {
@@ -122,11 +123,13 @@ export async function postJson<TResponse>(params: {
 
       if (!response.ok) {
         const apiErrorPayload = (payload ?? null) as ApiErrorPayload | null;
+        const normalizedErrorMessage =
+          apiErrorPayload?.error?.trim() || apiErrorPayload?.message?.trim();
         throw new ApiError({
           status: response.status,
           code: apiErrorPayload?.code ?? null,
           message:
-            apiErrorPayload?.error?.trim() ||
+            normalizedErrorMessage ||
             `Request failed with status ${response.status}`,
         });
       }

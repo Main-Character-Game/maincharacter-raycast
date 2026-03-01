@@ -46,13 +46,20 @@ export function toUserFacingError(error: unknown): UserFacingError {
       };
     }
 
-    if (error.status === 400) {
+    if (error.status === 400 || error.status === 422) {
       return {
         title: "Invalid Task",
         message: error.message,
       };
     }
 
+    return {
+      title: "Couldn’t Create Task",
+      message: error.message,
+    };
+  }
+
+  if (error instanceof Error && error.message.trim().length > 0) {
     return {
       title: "Couldn’t Create Task",
       message: error.message,
