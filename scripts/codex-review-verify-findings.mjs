@@ -1,80 +1,194 @@
 #!/usr/bin/env node
 
-import { readFile } from "node:fs/promises";
+import { spawnSync } from "node:child_process";
+import { readFileSync, writeFileSync } from "node:fs";
+import path from "node:path";
+import { pathToFileURL } from "node:url";
 
-function usage() {
-  console.log("Usage: node scripts/codex-review-verify-findings.mjs --json <review-json-path>");
+function parseArgs(argv) {
+  let jsonPath = "";
+  for (let i = 2; i < argv.length; i += 1) {
+    const arg = argv[i];
+    if (arg === "--json") {
+      jsonPath = String(argv[i + 1] ?? "");
+      i += 1;
+      continue;
+    }
+    if (arg === "-h" || arg === "--help") {
+      process.stdout.write(
+        "Usage: node scripts/codex-review-verify-findings.mjs --json <review-json-path>\n",
+      );
+      process.exit(0);
+    }
+    throw new Error(`Unknown argument: ${arg}`);
+  }
+  if (!jsonPath) {
+    throw new Error("Missing required --json argument");
+  }
+  return { jsonPath };
 }
 
-function severityRank(severity) {
-  if (severity === "blocker") return 3;
-  if (severity === "major") return 2;
-  return 1;
+function isTestPath(filePath) {
+  return /\.test\.(mjs|cjs|js|mts|cts|ts|tsx)$/.test(filePath);
 }
 
-function normalizeFinding(input, index) {
-  const id = typeof input?.id === "string" && input.id.trim() ? input.id.trim() : `f-${index + 1}`;
-  const title = typeof input?.title === "string" ? input.title.trim() : "";
-  const body = typeof input?.body === "string" ? input.body.trim() : "";
-  const severityRaw = typeof input?.severity === "string" ? input.severity.toLowerCase().trim() : "minor";
-  const severity = ["minor", "major", "blocker"].includes(severityRaw) ? severityRaw : "minor";
-  const confidence = Number.isFinite(input?.confidence) ? Math.max(0, Math.min(1, Number(input.confidence))) : 0.5;
-  const file = typeof input?.file === "string" && input.file.trim() ? input.file.trim() : null;
-  const line = Number.isInteger(input?.line) && input.line > 0 ? input.line : null;
-  const source_model =
-    typeof input?.source_model === "string" && input.source_model.trim() ? input.source_model.trim() : null;
+function looksLikeTestFailureClaim(finding) {
+  const haystack = [
+    finding.title,
+    finding.hypothesis,
+    finding.impact,
+    finding.recommended_direction,
+    ...(Array.isArray(finding.evidence)
+      ? finding.evidence.map((item) => String(item?.reason ?? ""))
+      : []),
+  ]
+    .join(" ")
+    .toLowerCase();
 
-  return { id, title, severity, confidence, file, line, body, source_model };
+  return (
+    /\btest(s)?\b[\s\S]{0,48}\b(fail|fails|failed|failing)\b/.test(haystack)
+  );
 }
 
-async function main() {
-  const args = process.argv.slice(2);
-  const jsonIndex = args.indexOf("--json");
-  if (jsonIndex === -1 || !args[jsonIndex + 1]) {
-    usage();
-    process.exit(2);
+function toPackageTestInvocation(filePath) {
+  const normalized = filePath.replace(/\\/g, "/");
+  if (!isTestPath(normalized)) return null;
+
+  if (normalized.startsWith("apps/app/")) {
+    return {
+      cmd: "pnpm",
+      args: ["--filter", "@maincharacter/app", "test", normalized.slice("apps/app/".length)],
+    };
+  }
+  if (normalized.startsWith("packages/ui/")) {
+    return {
+      cmd: "pnpm",
+      args: ["--filter", "@maincharacter/ui", "test", normalized.slice("packages/ui/".length)],
+    };
+  }
+  if (normalized.startsWith("scripts/") && normalized.endsWith(".test.mjs")) {
+    return {
+      cmd: "node",
+      args: ["--test", normalized],
+    };
   }
 
-  const jsonPath = args[jsonIndex + 1];
-  const raw = await readFile(jsonPath, "utf8");
-  const parsed = JSON.parse(raw);
-  const findings = Array.isArray(parsed?.findings) ? parsed.findings : [];
-  const normalized = findings.map((finding, index) => normalizeFinding(finding, index));
+  return null;
+}
 
-  const seenIds = new Set();
-  for (const finding of normalized) {
-    if (!finding.title) {
-      throw new Error(`finding ${finding.id} is missing title`);
-    }
-    if (!finding.body) {
-      throw new Error(`finding ${finding.id} is missing body`);
-    }
-    if (seenIds.has(finding.id)) {
-      throw new Error(`duplicate finding id ${finding.id}`);
-    }
-    seenIds.add(finding.id);
-  }
-
-  normalized.sort((a, b) => {
-    const sevDelta = severityRank(b.severity) - severityRank(a.severity);
-    if (sevDelta !== 0) return sevDelta;
-    return a.id.localeCompare(b.id);
+function runTestCheck(invocation, cwd, spawn = spawnSync) {
+  const result = spawn(invocation.cmd, invocation.args, {
+    cwd,
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
   });
-
-  const output = {
-    schema_version: 2,
-    summary: typeof parsed?.summary === "string" && parsed.summary.trim() ? parsed.summary.trim() : "Review complete.",
-    findings: normalized,
-    metadata: {
-      ...((parsed?.metadata && typeof parsed.metadata === "object") ? parsed.metadata : {}),
-      verified_at: new Date().toISOString()
-    }
-  };
-
-  process.stdout.write(`${JSON.stringify(output, null, 2)}\n`);
+  const output = `${result.stdout ?? ""}\n${result.stderr ?? ""}`.toLowerCase();
+  const noTestsDetected =
+    output.includes("no tests found") ||
+    output.includes("no test files found") ||
+    output.includes("no matching tests") ||
+    output.includes("# tests 0") ||
+    /test files\s+0\b/.test(output) ||
+    /\b0 passing\b/.test(output);
+  const executedTests =
+    /# tests\s+[1-9]\d*\b/.test(output) ||
+    /\b[1-9]\d*\s+tests?\b/.test(output) ||
+    /test files\s+[1-9]\d*\b/.test(output) ||
+    /\b[1-9]\d*\s+passing\b/.test(output);
+  const passed = result.status === 0 && executedTests && !noTestsDetected;
+  return { passed, executedTests };
 }
 
-main().catch((error) => {
-  console.error(`[codex-review-verify-findings] ${error.message}`);
-  process.exit(1);
-});
+function normalizeCheckResult(value) {
+  if (typeof value === "boolean") {
+    return { passed: value, executedTests: value };
+  }
+  if (!value || typeof value !== "object") {
+    return { passed: false, executedTests: false };
+  }
+
+  return {
+    passed: Boolean(value.passed),
+    executedTests: Boolean(value.executedTests),
+  };
+}
+
+function verifyFindings(data, cwd, runCheck = runTestCheck) {
+  if (!Array.isArray(data.findings)) return { changed: false };
+
+  const cache = new Map();
+  let changed = false;
+
+  for (const finding of data.findings) {
+    if (!finding || typeof finding !== "object") continue;
+    if (!looksLikeTestFailureClaim(finding)) continue;
+
+    const evidence = Array.isArray(finding.evidence) ? finding.evidence : [];
+    const invocations = [];
+    for (const entry of evidence) {
+      const evidenceFile = String(entry?.file ?? "").trim();
+      if (!evidenceFile) continue;
+      const invocation = toPackageTestInvocation(evidenceFile);
+      if (!invocation) continue;
+      const cacheKey = `${invocation.cmd} ${invocation.args.join(" ")}`;
+      invocations.push({ cacheKey, invocation });
+    }
+
+    if (invocations.length === 0) continue;
+
+    let allPass = true;
+    for (const { cacheKey, invocation } of invocations) {
+      if (!cache.has(cacheKey)) {
+        cache.set(cacheKey, normalizeCheckResult(runCheck(invocation, cwd)));
+      }
+      const check = cache.get(cacheKey);
+      if (!check?.passed || !check.executedTests) {
+        allPass = false;
+        break;
+      }
+    }
+
+    if (!allPass) continue;
+    if (finding.severity !== "blocker" && finding.severity !== "major") continue;
+
+    finding.severity = "minor";
+    const note =
+      "Auto-verified: referenced test currently passes, so severity was downgraded.";
+    const direction = String(finding.recommended_direction ?? "");
+    finding.recommended_direction = direction.includes(note)
+      ? direction
+      : `${direction}${direction ? " " : ""}${note}`;
+    changed = true;
+  }
+
+  return { changed };
+}
+
+function main() {
+  const { jsonPath } = parseArgs(process.argv);
+  const absoluteJsonPath = path.resolve(jsonPath);
+  const cwd = process.cwd();
+
+  const data = JSON.parse(readFileSync(absoluteJsonPath, "utf8"));
+  const result = verifyFindings(data, cwd);
+  if (result.changed) {
+    writeFileSync(absoluteJsonPath, `${JSON.stringify(data, null, 2)}\n`, "utf8");
+  }
+}
+
+if (
+  process.argv[1] !== undefined &&
+  import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href
+) {
+  try {
+    main();
+  } catch (error) {
+    console.error(
+      "[codex-review-verify-findings]",
+      error instanceof Error ? error.message : String(error),
+    );
+    process.exit(1);
+  }
+}
+
+export { looksLikeTestFailureClaim, runTestCheck, toPackageTestInvocation, verifyFindings };

@@ -9,7 +9,9 @@
     "build": "ray build",
     "lint": "ray lint",
     "fix-lint": "ray lint --fix",
-    "ci:quality": "npm run lint && npm run build",
+    "ci:quality": "npm run checks:shared && npm run lint && npm run build",
+    "checks:shared": "node scripts/check-shared-review-scripts.mjs",
+    "checks:shared:sync": "scripts/sync-shared-review-scripts.sh",
     "ai:review:last": "scripts/codex-review-last-commit",
     "setup:githooks": "scripts/setup-githooks",
     "prepare": "husky"

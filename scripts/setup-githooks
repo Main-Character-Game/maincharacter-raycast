@@ -33,6 +33,9 @@ required_hooks=(
   ".husky/post-push"
 )
 required_scripts=(
+  "scripts/resolve-shared-scripts-dir.sh"
+  "scripts/sync-shared-review-scripts.sh"
+  "scripts/check-shared-review-scripts.mjs"
   "scripts/codex-review-commit"
   "scripts/codex-review-post-push"
   "scripts/codex-review-last-commit"
@@ -54,6 +57,12 @@ for script in "${required_scripts[@]}"; do
   fi
   chmod +x "$script"
 done
+
+if npm run checks:shared >/dev/null 2>&1; then
+  echo "Shared review scripts: in sync"
+else
+  echo "Shared review scripts drift detected. Run: npm run checks:shared:sync"
+fi
 
 if command -v codex >/dev/null 2>&1; then
   if codex login status >/dev/null 2>&1; then
