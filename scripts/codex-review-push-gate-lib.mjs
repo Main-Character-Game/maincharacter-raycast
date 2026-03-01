@@ -756,7 +756,7 @@ export async function executePushGate({
   minSeverity = "minor",
   timeoutMs = 900000,
   syncMissing = true,
-  syncCanRepairMissingLocal = true,
+  syncCanRepairMissingLocal = false,
   computeOutgoing = computeOutgoingShas,
   gitExec,
   waitForReview = waitForReviewToSettle,
