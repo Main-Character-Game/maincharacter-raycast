@@ -8,6 +8,7 @@ wrapper_files=(
   "codex-review-commit"
   "codex-review-post-push"
   "codex-review-push-gate"
+  "codex-review-dismiss-finding"
 )
 
 mirrored_files=(

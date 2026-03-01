@@ -38,6 +38,11 @@ fi
 : "${CODEX_REVIEW_PUSH_GATE_MIN_SEVERITY:=major}"
 : "${CODEX_REVIEW_PUSH_GATE_SYNC_MISSING:=1}"
 
+# Auto-dismiss known false positives (non-fatal if script is unavailable/fails).
+if [ -x "scripts/codex-review-auto-dismiss.mjs" ]; then
+  node scripts/codex-review-auto-dismiss.mjs --stdin-file "$TMP_PUSH_INPUT" || true
+fi
+
 scripts/codex-review-push-gate \
   --stdin-file "$TMP_PUSH_INPUT" \
   --remote-name "${1:-}" \

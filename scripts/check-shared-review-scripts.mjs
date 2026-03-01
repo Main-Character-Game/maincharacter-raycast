@@ -9,7 +9,12 @@ const repoRoot = process.cwd();
 const configured = process.env.MC_SHARED_SCRIPTS_DIR?.trim();
 const sharedScriptsDir = configured || path.resolve(repoRoot, "../maincharacter/scripts");
 
-const wrapperFiles = ["codex-review-commit", "codex-review-post-push", "codex-review-push-gate"];
+const wrapperFiles = [
+  "codex-review-commit",
+  "codex-review-post-push",
+  "codex-review-push-gate",
+  "codex-review-dismiss-finding",
+];
 const mirroredFiles = ["codex-review-output.schema.json", "codex-review-verify-findings.mjs", "codex-review-push-gate-lib.mjs"];
 
 const expectedWrapper = (name) => `#!/usr/bin/env bash\nset -euo pipefail\n\nrepo_root="$(git rev-parse --show-toplevel)"\nshared_scripts_dir="$($repo_root/scripts/resolve-shared-scripts-dir.sh)"\nexec "$shared_scripts_dir/${name}" "$@"\n`;

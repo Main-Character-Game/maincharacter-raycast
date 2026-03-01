@@ -40,6 +40,8 @@ required_scripts=(
   "scripts/codex-review-post-push"
   "scripts/codex-review-last-commit"
   "scripts/codex-review-push-gate"
+  "scripts/codex-review-dismiss-finding"
+  "scripts/codex-review-auto-dismiss.mjs"
 )
 
 for hook in "${required_hooks[@]}"; do
