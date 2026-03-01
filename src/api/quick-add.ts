@@ -40,7 +40,9 @@ function asTask(value: unknown): QuickAddTask | null {
   };
 }
 
-function parseQuickAddSuccess(payload: unknown): QuickAddSuccessResponse {
+export function parseQuickAddSuccess(
+  payload: unknown,
+): QuickAddSuccessResponse {
   if (!isRecord(payload)) {
     throw new Error("Main Character returned an empty or invalid response.");
   }

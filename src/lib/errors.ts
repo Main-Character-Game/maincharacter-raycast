@@ -1,6 +1,5 @@
 import { ApiError, NetworkError } from "../api/client";
 import { FormValidationError } from "./validation";
-import { PreferenceError } from "./preferences";
 
 export type UserFacingError = {
   title: string;
@@ -8,8 +7,12 @@ export type UserFacingError = {
   openPreferences?: boolean;
 };
 
+function isPreferenceErrorLike(error: unknown): error is Error {
+  return error instanceof Error && error.name === "PreferenceError";
+}
+
 export function toUserFacingError(error: unknown): UserFacingError {
-  if (error instanceof PreferenceError) {
+  if (isPreferenceErrorLike(error)) {
     return {
       title: "Setup Required",
       message: error.message,

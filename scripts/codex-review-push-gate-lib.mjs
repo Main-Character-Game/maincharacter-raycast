@@ -503,6 +503,7 @@ export async function readReviewGateState({
       status: "missing",
       reason: "missing-or-invalid-json",
       reviewStatus: "",
+      failureReason: "",
       findingsCount: 0,
       worstSeverity: "none",
       actionable: false,
@@ -516,10 +517,11 @@ export async function readReviewGateState({
     };
   }
 
-  const reviewStatus = String(parsed?.review_status ?? "");
+  const reviewStatus = String(parsed?.review_status ?? "").trim().toLowerCase();
+  const failureReason = String(parsed?.failure_reason ?? "").trim().toLowerCase();
   const codexReviewStatus = String(parsed?.review_engines?.codex?.status ?? "");
   const localReviewStatus = String(parsed?.review_engines?.local?.status ?? "");
-  const failed = reviewStatus === "failed";
+  const failed = reviewStatus !== "ok";
   const findings = Array.isArray(parsed?.findings) ? parsed.findings : [];
   const unresolvedFindings = findings.filter(
     (finding) =>
@@ -541,6 +543,7 @@ export async function readReviewGateState({
     status: "present",
     reason: "report-present",
     reviewStatus,
+    failureReason,
     findingsCount: count,
     worstSeverity,
     actionable,
@@ -827,7 +830,9 @@ export async function executePushGate({
         severity: state.worstSeverity,
         findings: state.findingsCount,
         reason: state.failed
-          ? "review-status-failed"
+          ? state.failureReason
+            ? `review-status-${state.failureReason}`
+            : "review-status-failed"
           : `severity-threshold-${parseMinSeverity(minSeverity)}`,
       });
       continue;

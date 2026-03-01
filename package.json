@@ -7,9 +7,10 @@
   "scripts": {
     "dev": "ray develop",
     "build": "ray build",
+    "test": "node --import tsx --test \"tests/**/*.test.ts\"",
     "lint": "ray lint",
     "fix-lint": "ray lint --fix",
-    "ci:quality": "npm run checks:shared && npm run lint && npm run build",
+    "ci:quality": "npm run checks:shared && npm run lint && npm run test && npm run build",
     "checks:shared": "node scripts/check-shared-review-scripts.mjs",
     "checks:shared:sync": "scripts/sync-shared-review-scripts.sh",
     "ai:review:last": "scripts/codex-review-last-commit",
@@ -27,6 +28,7 @@
     "eslint": "^9.20.1",
     "husky": "^9.1.7",
     "prettier": "^3.5.1",
+    "tsx": "^4.21.0",
     "typescript": "^5.7.3"
   },
   "schemaVersion": 1,
