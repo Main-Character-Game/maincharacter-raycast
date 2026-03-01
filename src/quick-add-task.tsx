@@ -22,6 +22,15 @@ type CommandArguments = {
 
 const OPEN_AFTER_CREATE_STORAGE_KEY = "quick-add-open-after-create";
 
+function generateIdempotencyKey(): string {
+  const cryptoFromGlobal = globalThis.crypto;
+  if (cryptoFromGlobal && typeof cryptoFromGlobal.randomUUID === "function") {
+    return cryptoFromGlobal.randomUUID();
+  }
+
+  return `raycast-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
+}
+
 export default function QuickAddTaskCommand(
   props: LaunchProps<{ arguments: CommandArguments }>,
 ) {
@@ -81,7 +90,7 @@ export default function QuickAddTaskCommand(
       const normalizedInput = normalizeQuickAddInput({ title, notes });
       const result = await createQuickAddTask(prefs, {
         ...normalizedInput,
-        idempotencyKey: crypto.randomUUID(),
+        idempotencyKey: generateIdempotencyKey(),
         source: "raycast_extension",
       });
 

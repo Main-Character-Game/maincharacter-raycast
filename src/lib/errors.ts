@@ -38,7 +38,11 @@ export function toUserFacingError(error: unknown): UserFacingError {
     if (error.status === 401 || error.status === 403) {
       return {
         title: "Authentication Failed",
-        message: "Token invalid, revoked, expired, or missing required scope.",
+        message:
+          error.message.trim().length > 0
+            ? error.message
+            : "Token invalid, revoked, expired, or missing required scope.",
+        openPreferences: true,
       };
     }
 

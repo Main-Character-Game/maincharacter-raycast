@@ -18,3 +18,13 @@ test("toUserFacingError preserves unknown runtime error messages", () => {
   assert.equal(mapped.title, "Couldn’t Create Task");
   assert.equal(mapped.message, "Main Character rejected this request.");
 });
+
+test("toUserFacingError keeps server auth message and opens preferences", () => {
+  const mapped = toUserFacingError(
+    new ApiError({ status: 403, message: "Missing required scope: TASK_CREATE" }),
+  );
+
+  assert.equal(mapped.title, "Authentication Failed");
+  assert.equal(mapped.message, "Missing required scope: TASK_CREATE");
+  assert.equal(mapped.openPreferences, true);
+});
