@@ -171,6 +171,95 @@ export function isReviewProcessRunningForSha(sha, processListText) {
   return withShaPattern.test(String(processListText ?? ""));
 }
 
+function isPidAlive(pidRaw) {
+  const pid = Number.parseInt(String(pidRaw ?? ""), 10);
+  if (!Number.isInteger(pid) || pid <= 0) return false;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function parseProcessTable(processTableText) {
+  const map = new Map();
+  const lines = String(processTableText ?? "")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  for (const line of lines) {
+    const match = /^(\d+)\s+(.+)$/.exec(line);
+    if (!match) continue;
+    map.set(match[1], match[2]);
+  }
+  return map;
+}
+
+export function classifyReviewProcessCommandForSha(command, sha) {
+  const value = String(command ?? "");
+  if (!value || !sha) return "inconclusive";
+  if (!/codex-review-commit/i.test(value)) return "mismatch";
+  if (!/--sha\b/i.test(value)) return "inconclusive";
+
+  const escapedSha = sha.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const withShaPattern = new RegExp(
+    `codex-review-commit[^\\n]*--sha\\s+${escapedSha}|--sha\\s+${escapedSha}[^\\n]*codex-review-commit`,
+    "i",
+  );
+  if (withShaPattern.test(value)) return "match";
+  return "inconclusive";
+}
+
+async function hasActiveReviewLockForSha({
+  reviewsDir,
+  sha,
+  processTable = new Map(),
+  readFileFn = readFile,
+}) {
+  if (!sha) return false;
+  const ownerPath = path.join(reviewsDir, `${sha}.review.lock`, "owner");
+  const rawOwner = await readFileFn(ownerPath, "utf8").catch(() => "");
+  if (!rawOwner) return false;
+
+  const pidLine = rawOwner
+    .split(/\r?\n/)
+    .find((line) => String(line ?? "").startsWith("pid="));
+  const pid = String((pidLine ?? "").slice(4).trim());
+  if (!pid) return false;
+  if (!isPidAlive(pid)) return false;
+
+  const command = processTable.get(pid);
+  const classification = classifyReviewProcessCommandForSha(command, sha);
+  return classification !== "mismatch";
+}
+
+function snapshotProcessTable() {
+  const attempts = [
+    ["-axww", "-o", "pid=,command="],
+    ["-axo", "pid=,command="],
+  ];
+  for (const args of attempts) {
+    const ps = spawnSync("ps", args, {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    });
+    if (ps.status !== 0) continue;
+    const processTableText = String(ps.stdout ?? "");
+    const processTable = parseProcessTable(processTableText);
+    return {
+      available: true,
+      processTableText,
+      processTable,
+    };
+  }
+  return {
+    available: false,
+    processTableText: "",
+    processTable: new Map(),
+  };
+}
+
 const IN_PROGRESS_PATTERNS = [
   /\.patch\./,
   /\.prompt\./,
@@ -179,6 +268,8 @@ const IN_PROGRESS_PATTERNS = [
   /\.tmp-local-model-used\./,
   /\.tmp-md\./,
   /\.tmp-status-/,
+  /\.tmp-reason-/,
+  /\.tmp-attempts-/,
   /\.tmp\./,
 ];
 
@@ -236,19 +327,34 @@ export async function hasFreshInProgressArtifactsForSha({
 }
 
 export async function defaultIsReviewInProgress({ reviewsDir, sha }) {
-  const ps = spawnSync("ps", ["-axo", "command"], {
-    encoding: "utf8",
-    stdio: ["ignore", "pipe", "ignore"],
-  });
-  const processListText = ps.status === 0 ? String(ps.stdout ?? "") : "";
+  const snapshot = snapshotProcessTable();
+  const processTable = snapshot.processTable;
+  const processTableText = snapshot.processTableText;
+  const processListText = Array.from(processTable.values()).join("\n");
   if (isReviewProcessRunningForSha(sha, processListText)) {
     return true;
   }
 
-  return hasFreshInProgressArtifactsForSha({
+  const hasFreshArtifacts = await hasFreshInProgressArtifactsForSha({
     reviewsDir,
     sha,
     staleAfterMs: resolveInProgressStaleMs(),
+  });
+  if (!hasFreshArtifacts) return false;
+
+  // If ps output is unavailable, preserve conservative behavior and treat
+  // fresh temp artifacts as in-progress.
+  if (!snapshot.available) {
+    return true;
+  }
+
+  // Fresh temp files can outlive crashed reviewers. Use lock owner checks to
+  // avoid waiting on dead artifacts forever, while treating inconclusive
+  // command inspection as active to avoid deleting/live-review false negatives.
+  return hasActiveReviewLockForSha({
+    reviewsDir,
+    sha,
+    processTable,
   });
 }
 
@@ -521,7 +627,14 @@ export async function readReviewGateState({
   const failureReason = String(parsed?.failure_reason ?? "").trim().toLowerCase();
   const codexReviewStatus = String(parsed?.review_engines?.codex?.status ?? "");
   const localReviewStatus = String(parsed?.review_engines?.local?.status ?? "");
-  const failed = reviewStatus !== "ok";
+  const normalizedCodexStatus = codexReviewStatus.trim().toLowerCase();
+  const inferredCodexOkFromReviewStatus =
+    reviewStatus === "ok" || reviewStatus === "partial_success";
+  const hasCodexReview =
+    normalizedCodexStatus.length > 0
+      ? normalizedCodexStatus === "ok"
+      : inferredCodexOkFromReviewStatus;
+  const failed = !hasCodexReview;
   const findings = Array.isArray(parsed?.findings) ? parsed.findings : [];
   const unresolvedFindings = findings.filter(
     (finding) =>
@@ -534,7 +647,6 @@ export async function readReviewGateState({
   const blocking =
     failed ||
     (count > 0 && severityRank(worstSeverity) >= severityRank(threshold));
-  const hasCodexReview = reviewStatus === "ok" || codexReviewStatus === "ok";
   const hasLocalReview = localReviewStatus === "ok";
   const missingRequiredReviews = requireLocalModel && !hasLocalReview;
 
@@ -584,14 +696,56 @@ export function defaultEnsureCodexReady() {
 
 export function defaultRunSyncReview({ repoRoot, sha }) {
   const scriptPath = path.join(repoRoot, "scripts", "codex-review-commit");
+  const allowLocalModel =
+    (process.env.CODEX_REVIEW_PUSH_GATE_SYNC_ALLOW_LOCAL_MODEL ?? "0").trim() ===
+    "1";
+  const syncTimeoutSeconds = String(
+    process.env.CODEX_REVIEW_PUSH_GATE_SYNC_TIMEOUT_SECONDS ??
+      process.env.CODEX_REVIEW_TIMEOUT_SECONDS ??
+      "300",
+  ).trim();
+  const syncMaxAttempts = String(
+    process.env.CODEX_REVIEW_PUSH_GATE_SYNC_MAX_ATTEMPTS ??
+      process.env.CODEX_REVIEW_MAX_ATTEMPTS ??
+      "1",
+  ).trim();
+  const syncDedupeLockTimeoutSeconds = String(
+    process.env.CODEX_REVIEW_PUSH_GATE_SYNC_DEDUPE_LOCK_TIMEOUT_SECONDS ??
+      process.env.CODEX_REVIEW_DEDUPE_LOCK_TIMEOUT_SECONDS ??
+      "90",
+  ).trim();
+  const syncDedupeStaleSeconds = String(
+    process.env.CODEX_REVIEW_PUSH_GATE_SYNC_DEDUPE_STALE_SECONDS ??
+      process.env.CODEX_REVIEW_DEDUPE_STALE_SECONDS ??
+      "60",
+  ).trim();
+  const syncDedupeOwnerlessStaleSeconds = String(
+    process.env.CODEX_REVIEW_PUSH_GATE_SYNC_DEDUPE_OWNERLESS_STALE_SECONDS ??
+      process.env.CODEX_REVIEW_DEDUPE_OWNERLESS_STALE_SECONDS ??
+      "15",
+  ).trim();
   const result = spawnSync(scriptPath, ["--sha", sha, "--trigger", "manual"], {
     cwd: repoRoot,
     stdio: "inherit",
+    env: {
+      ...process.env,
+      CODEX_REVIEW_OLLAMA_ENABLED: allowLocalModel ? "1" : "0",
+      CODEX_REVIEW_TIMEOUT_SECONDS: syncTimeoutSeconds,
+      CODEX_REVIEW_MAX_ATTEMPTS: syncMaxAttempts,
+      CODEX_REVIEW_DEDUPE_LOCK_TIMEOUT_SECONDS: syncDedupeLockTimeoutSeconds,
+      CODEX_REVIEW_DEDUPE_STALE_SECONDS: syncDedupeStaleSeconds,
+      CODEX_REVIEW_DEDUPE_OWNERLESS_STALE_SECONDS:
+        syncDedupeOwnerlessStaleSeconds,
+    },
   });
   return {
     ok: result.status === 0,
     code: result.status ?? 1,
   };
+}
+
+function defaultShouldContinue() {
+  return true;
 }
 
 export async function executePushGate({
@@ -602,6 +756,7 @@ export async function executePushGate({
   minSeverity = "minor",
   timeoutMs = 900000,
   syncMissing = true,
+  syncCanRepairMissingLocal = true,
   computeOutgoing = computeOutgoingShas,
   gitExec,
   waitForReview = waitForReviewToSettle,
@@ -609,6 +764,7 @@ export async function executePushGate({
   ensureCodexReady = defaultEnsureCodexReady,
   runSyncReview = defaultRunSyncReview,
   requireLocalModel = false,
+  shouldContinue = defaultShouldContinue,
 }) {
   const updates = parseRefUpdates(stdinText);
   const usingDefaultOutgoing = computeOutgoing === computeOutgoingShas;
@@ -692,6 +848,10 @@ export async function executePushGate({
   let codexReady = null;
 
   for (const sha of shas) {
+    if (!shouldContinue()) {
+      break;
+    }
+
     // Only evaluate pushed tip SHAs. Older outgoing commits are superseded by tip state.
     if (!pushTipShas.has(sha)) {
       continue;
@@ -748,9 +908,14 @@ export async function executePushGate({
       hasCleanReviewedEvidence && !requireLocalModel;
     const needsSync =
       syncMissing &&
-      (!state.hasReportArtifact || state.missingRequiredReviews) &&
+      (!state.hasReportArtifact ||
+        (state.missingRequiredReviews && syncCanRepairMissingLocal)) &&
       !canBypassWithCleanLedger;
     if (needsSync) {
+      if (!shouldContinue()) {
+        break;
+      }
+
       if (!codexReady || !codexReady.ok) {
         codexReady = ensureCodexReady();
       }
