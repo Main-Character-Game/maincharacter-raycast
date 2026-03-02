@@ -329,7 +329,6 @@ export async function hasFreshInProgressArtifactsForSha({
 export async function defaultIsReviewInProgress({ reviewsDir, sha }) {
   const snapshot = snapshotProcessTable();
   const processTable = snapshot.processTable;
-  const processTableText = snapshot.processTableText;
   const processListText = Array.from(processTable.values()).join("\n");
   if (isReviewProcessRunningForSha(sha, processListText)) {
     return true;
@@ -756,7 +755,7 @@ export async function executePushGate({
   minSeverity = "minor",
   timeoutMs = 900000,
   syncMissing = true,
-  syncCanRepairMissingLocal = false,
+  syncCanRepairMissingLocal = true,
   computeOutgoing = computeOutgoingShas,
   gitExec,
   waitForReview = waitForReviewToSettle,
