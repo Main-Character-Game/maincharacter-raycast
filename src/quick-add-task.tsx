@@ -11,6 +11,10 @@ import {
   Toast,
 } from "@raycast/api";
 import { useEffect, useState } from "react";
+import {
+  getQuickAddOptions,
+  type QuickAddColumnOption,
+} from "./api/quick-add-options";
 import { createQuickAddTask } from "./api/quick-add";
 import { toUserFacingError } from "./lib/errors";
 import { getRuntimePreferences } from "./lib/preferences";
@@ -21,6 +25,7 @@ type CommandArguments = {
 };
 
 const OPEN_AFTER_CREATE_STORAGE_KEY = "quick-add-open-after-create";
+const SELECTED_COLUMN_STORAGE_KEY = "quick-add-selected-column-id";
 
 function generateIdempotencyKey(): string {
   const cryptoFromGlobal = globalThis.crypto;
@@ -37,7 +42,12 @@ export default function QuickAddTaskCommand(
   const [title, setTitle] = useState(props.arguments.title?.trim() ?? "");
   const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoadingColumns, setIsLoadingColumns] = useState(true);
   const [openAfterCreate, setOpenAfterCreate] = useState(false);
+  const [columnOptions, setColumnOptions] = useState<QuickAddColumnOption[]>(
+    [],
+  );
+  const [selectedColumnId, setSelectedColumnId] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -48,6 +58,66 @@ export default function QuickAddTaskCommand(
         setOpenAfterCreate(value === "true");
       })
       .catch(() => undefined);
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadColumns(): Promise<void> {
+      try {
+        const prefs = getRuntimePreferences();
+        const [savedColumnId, options] = await Promise.all([
+          LocalStorage.getItem<string>(SELECTED_COLUMN_STORAGE_KEY),
+          getQuickAddOptions(prefs),
+        ]);
+
+        if (cancelled) return;
+
+        setColumnOptions(options.columns);
+        const availableColumnIds = new Set(
+          options.columns.map((col) => col.id),
+        );
+        const hasSavedColumn =
+          typeof savedColumnId === "string" &&
+          (savedColumnId.length === 0 || availableColumnIds.has(savedColumnId));
+
+        const fallbackColumnId =
+          options.defaultColumnId &&
+          availableColumnIds.has(options.defaultColumnId)
+            ? options.defaultColumnId
+            : "";
+
+        const nextColumnId = hasSavedColumn ? savedColumnId : fallbackColumnId;
+
+        setSelectedColumnId(nextColumnId);
+        await LocalStorage.setItem(SELECTED_COLUMN_STORAGE_KEY, nextColumnId);
+      } catch (error) {
+        if (cancelled) return;
+        setColumnOptions([]);
+        setSelectedColumnId("");
+
+        const message =
+          error instanceof Error && error.message.trim().length > 0
+            ? error.message
+            : "Couldn’t load columns. Using Main Character default.";
+
+        await showToast({
+          style: Toast.Style.Failure,
+          title: "Couldn’t Load Columns",
+          message,
+        });
+      } finally {
+        if (!cancelled) {
+          setIsLoadingColumns(false);
+        }
+      }
+    }
+
+    void loadColumns();
 
     return () => {
       cancelled = true;
@@ -82,6 +152,11 @@ export default function QuickAddTaskCommand(
     );
   }
 
+  async function persistSelectedColumnId(nextValue: string): Promise<void> {
+    setSelectedColumnId(nextValue);
+    await LocalStorage.setItem(SELECTED_COLUMN_STORAGE_KEY, nextValue);
+  }
+
   async function handleSubmit(): Promise<void> {
     setIsSubmitting(true);
 
@@ -90,13 +165,14 @@ export default function QuickAddTaskCommand(
       const normalizedInput = normalizeQuickAddInput({ title, notes });
       const result = await createQuickAddTask(prefs, {
         ...normalizedInput,
+        ...(selectedColumnId ? { columnId: selectedColumnId } : {}),
         idempotencyKey: generateIdempotencyKey(),
         source: "raycast_extension",
       });
 
       const taskUrl =
         result.task.url ??
-        `${prefs.baseUrl}/app/tasks?taskId=${encodeURIComponent(result.task.id)}`;
+        `${prefs.baseUrl}/app/tasks/${encodeURIComponent(result.task.id)}`;
 
       if (openAfterCreate) {
         try {
@@ -143,7 +219,7 @@ export default function QuickAddTaskCommand(
 
   return (
     <Form
-      isLoading={isSubmitting}
+      isLoading={isSubmitting || isLoadingColumns}
       actions={
         <ActionPanel>
           <Action.SubmitForm title="Create Task" onSubmit={handleSubmit} />
@@ -169,6 +245,23 @@ export default function QuickAddTaskCommand(
         value={notes}
         onChange={setNotes}
       />
+      <Form.Dropdown
+        id="columnId"
+        title="Column"
+        value={selectedColumnId}
+        onChange={(nextValue) => {
+          void persistSelectedColumnId(nextValue).catch(() => undefined);
+        }}
+      >
+        <Form.Dropdown.Item value="" title="Main Character Default" />
+        {columnOptions.map((column) => (
+          <Form.Dropdown.Item
+            key={column.id}
+            value={column.id}
+            title={column.name}
+          />
+        ))}
+      </Form.Dropdown>
       <Form.Checkbox
         id="openAfterCreate"
         label="Open task in Main Character after create"

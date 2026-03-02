@@ -3,6 +3,7 @@ import { postJson, type ApiClientConfig } from "./client";
 export type QuickAddRequest = {
   title: string;
   notes?: string;
+  columnId?: string;
   source: "raycast_extension";
   idempotencyKey: string;
 };
@@ -27,7 +28,7 @@ function asTask(value: unknown): QuickAddTask | null {
   if (!isRecord(value)) return null;
   const id = value.id;
   const title = value.title;
-  const url = value.url;
+  const url = typeof value.url === "string" ? value.url : value.taskUrl;
 
   if (typeof id !== "string" || id.trim().length === 0) return null;
   if (typeof title !== "string" || title.trim().length === 0) return null;

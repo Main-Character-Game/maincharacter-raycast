@@ -7,6 +7,8 @@ This extension is intentionally a thin client. Task creation, policy checks, ide
 ## Features
 
 - Quick Add Task form (`Title`, optional `Notes`)
+- Destination `Column` dropdown sourced from Main Character quick-add options
+- Selected column is persisted locally until changed
 - `Cmd+Enter` submit for fast capture
 - Optional `Open task in Main Character after create` toggle (persisted locally, off by default)
 - Success toast with `Go to Task` action when auto-open is off
@@ -58,13 +60,15 @@ Prerequisites:
 ## API Contract Used
 
 - Endpoint: `POST /api/tasks/quick-add`
+- Endpoint: `GET /api/tasks/quick-add/options`
 - Auth: `Authorization: Bearer <mc_pat_...>`
 - Request:
   - `title` (required)
   - `notes` (optional)
+  - `columnId` (optional)
   - `source = "raycast_extension"`
   - `idempotencyKey` (required)
-- Success response includes created task identity and URL.
+- Success response includes created task identity and canonical task detail URL.
 
 ## Security Model
 

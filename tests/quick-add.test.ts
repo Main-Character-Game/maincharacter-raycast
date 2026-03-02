@@ -9,7 +9,7 @@ test("parseQuickAddSuccess accepts top-level task payload", () => {
     task: {
       id: "task_1",
       title: "Ship parser",
-      url: "https://maincharacter.game/app/tasks?taskId=task_1",
+      url: "https://maincharacter.game/app/tasks/task_1",
     },
   });
 
@@ -32,6 +32,20 @@ test("parseQuickAddSuccess accepts nested data.task payload", () => {
   assert.equal(parsed.task.id, "task_nested");
   assert.equal(parsed.task.title, "Nested response");
   assert.equal(parsed.requestId, "req_nested");
+});
+
+test("parseQuickAddSuccess accepts taskUrl alias", () => {
+  const parsed = parseQuickAddSuccess({
+    ok: true,
+    task: {
+      id: "task_alias",
+      title: "Alias response",
+      taskUrl: "https://maincharacter.game/app/tasks/task_alias",
+    },
+  });
+
+  assert.equal(parsed.task.id, "task_alias");
+  assert.equal(parsed.task.url, "https://maincharacter.game/app/tasks/task_alias");
 });
 
 test("parseQuickAddSuccess rejects malformed success payload", () => {

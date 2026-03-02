@@ -99,6 +99,31 @@ export async function postJson<TResponse>(params: {
   path: string;
   body: Record<string, unknown>;
 }): Promise<TResponse> {
+  return requestJson<TResponse>({
+    config: params.config,
+    path: params.path,
+    method: "POST",
+    body: params.body,
+  });
+}
+
+export async function getJson<TResponse>(params: {
+  config: ApiClientConfig;
+  path: string;
+}): Promise<TResponse> {
+  return requestJson<TResponse>({
+    config: params.config,
+    path: params.path,
+    method: "GET",
+  });
+}
+
+async function requestJson<TResponse>(params: {
+  config: ApiClientConfig;
+  path: string;
+  method: "GET" | "POST";
+  body?: Record<string, unknown>;
+}): Promise<TResponse> {
   const endpoint = new URL(params.path, params.config.baseUrl).toString();
 
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
@@ -106,12 +131,12 @@ export async function postJson<TResponse>(params: {
       const response = await fetchWithTimeout(
         endpoint,
         {
-          method: "POST",
+          method: params.method,
           headers: {
             Authorization: `Bearer ${params.config.personalAccessToken}`,
             "Content-Type": "application/json",
           },
-          body: JSON.stringify(params.body),
+          ...(params.body ? { body: JSON.stringify(params.body) } : {}),
         },
         REQUEST_TIMEOUT_MS,
       );
