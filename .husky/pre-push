@@ -13,6 +13,13 @@ cat > "$TMP_PUSH_INPUT"
 # Non-maintainer clones may not have the canonical sibling repo locally.
 if scripts/resolve-shared-scripts-dir.sh >/dev/null 2>&1; then
   npm run checks:shared:sync
+  CHANGED_SHARED_SCRIPTS="$(git status --porcelain --untracked-files=all -- scripts)"
+  if [ -n "$CHANGED_SHARED_SCRIPTS" ]; then
+    echo "Shared review scripts were updated locally."
+    echo "Commit these script changes before pushing:"
+    printf '%s\n' "$CHANGED_SHARED_SCRIPTS"
+    exit 1
+  fi
 else
   echo "Shared review scripts sync skipped: canonical scripts directory unavailable."
 fi
