@@ -36,7 +36,7 @@ function createReadState({
   };
 }
 
-test("executePushGate does not rerun sync by default for missing local-model coverage", async () => {
+test("executePushGate does not rerun sync when missing-local repair is disabled", async () => {
   let syncRuns = 0;
 
   const result = await executePushGate({
@@ -44,6 +44,7 @@ test("executePushGate does not rerun sync by default for missing local-model cov
     reviewsDir: "/tmp/reviews",
     stdinText: STDIN_UPDATE,
     requireLocalModel: true,
+    syncCanRepairMissingLocal: false,
     computeOutgoing: () => [SHA],
     gitExec: () => "main",
     waitForReview: async () => ({ waited: false, timedOut: false }),
